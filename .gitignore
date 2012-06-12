@@ -20,3 +20,6 @@
 
 deploy.rb
 .DS_Store
+
+# Heroku
+.env
