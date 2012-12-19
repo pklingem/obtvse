@@ -3,7 +3,7 @@ class PostsController < ApplicationController
   layout :choose_layout
 
   def index
-    @posts = Post.where(draft:false).order('created_at desc').page(params[:page]).per(10)
+    @posts = Post.page(params[:page]).per(10).where(draft:false)
 
     respond_to do |format|
       format.html
@@ -12,34 +12,53 @@ class PostsController < ApplicationController
     end
   end
 
-  def show
-    @single_post = true
-    @post = admin? ? Post.find_by_slug!(params[:slug]) : Post.find_by_slug_and_draft!(params[:slug],false)
-
+  def preview
+    @post = Post.new(params[:post])
+    @preview = true
     respond_to do |format|
-      if @post.present?
-        format.html
-        format.xml { render :xml => @post }
-      else
-        format.any { render :status => 404  }
-      end
+      format.html { render 'show' }
     end
   end
 
-  def new
+  def admin
     @no_header = true
-    @post = params[:id] ? Post.find(params[:id]) : Post.new
-    @published = Post.where(draft:false).order('created_at desc')
-    @drafts = Post.where(draft:true).order('updated_at desc')
+    @post = Post.new
+    @published = Post.where(draft:false).page(params[:post_page]).per(20)
+    @drafts = Post.where(draft:true).page(params[:draft_page]).per(20)
 
     respond_to do |format|
       format.html
     end
   end
 
-  def get
-    @post = Post.find_by_id(params[:id])
-    render :text => @post.to_json
+  def show
+    @single_post = true
+    @post = admin? ? Post.find_by_slug(params[:slug]) : Post.find_by_slug_and_draft(params[:slug],false)
+
+    respond_to do |format|
+      if @post.present?
+        format.html
+        format.xml { render :xml => @post }
+      else
+        format.any { head status: :not_found  }
+      end
+    end
+  end
+
+  def new
+    @no_header = true
+    @posts = Post.page(params[:page]).per(20)
+    @post = Post.new
+
+    respond_to do |format|
+      format.html
+      format.xml { render xml: @post }
+    end
+  end
+
+  def edit
+    @no_header = true
+    @post = Post.find(params[:id])
   end
 
   def create
@@ -49,27 +68,23 @@ class PostsController < ApplicationController
       if @post.save
         format.html { redirect_to "/edit/#{@post.id}", :notice => "Post created successfully" }
         format.xml { render :xml => @post, :status => :created, location: @post }
-        format.text { render :text => @post.to_json }
       else
         format.html { render :action => 'new' }
         format.xml { render :xml => @post.errors, :status => :unprocessable_entity}
-        format.text { head :bad_request }
       end
     end
   end
 
   def update
-    @post = Post.find_by_id(params[:id])
+    @post = Post.find_by_slug(params[:slug])
 
     respond_to do |format|
       if @post.update_attributes(params[:post])
         format.html { redirect_to "/edit/#{@post.id}", :notice => "Post updated successfully" }
         format.xml { head :ok }
-        format.text { render :text => @post.to_json }
       else
         format.html { render :action => 'edit' }
         format.xml { render :xml => @post.errors, :status => :unprocessable_entity}
-        format.text { head :bad_request }
       end
     end
   end
